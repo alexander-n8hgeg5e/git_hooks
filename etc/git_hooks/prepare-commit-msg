@@ -1,0 +1,99 @@
+#!/usr/bin/python3
+# Copyright 2019 Alexander Wilhelmi
+# This file is part of git_hooks.
+# 
+# git_hooks is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# git_hooks is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with git_hooks.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# Diese Datei ist Teil von git_hooks.
+# 
+# git_hooks ist Freie Software: Sie können es unter den Bedingungen
+# der GNU General Public License, wie von der Free Software Foundation,
+# Version 3 der Lizenz oder (nach Ihrer Wahl) jeder neueren
+# veröffentlichten Version, weiter verteilen und/oder modifizieren.
+# 
+# git_hooks wird in der Hoffnung, dass es nützlich sein wird, aber
+# OHNE JEDE GEWÄHRLEISTUNG, bereitgestellt; sogar ohne die implizite
+# Gewährleistung der MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
+# Siehe die GNU General Public License für weitere Details.
+# 
+# Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
+# Programm erhalten haben. Wenn nicht, siehe <https://www.gnu.org/licenses/>.
+#
+# Called by "git commit" with the name of the file that has the
+# commit message, followed by the description of the commit
+# message's source.  The hook's purpose is to edit the commit
+# message file.  If the hook fails with a non-zero status,
+# the commit is aborted.
+
+from sys import argv
+from os import linesep
+
+def is_line0(line):
+    return line[0:11] == 'diff --git '
+def is_line1(line):
+    return line[0:6] == 'index '
+def is_line2(line):
+    return line[0:4] == '--- '
+def is_line3(line):
+    return line[0:4] == '+++ '
+def is_line4(line):
+    return line[0:3] == '@@ '
+
+def extract_filename(diffline):
+    l=diffline[13:]
+    p=l.find(' b')
+    return l[:p]
+    
+with open(argv[1],mode='rb') as f:
+     text=f.read().decode(encoding="utf-8",errors="ignore")
+     lines = text.splitlines()
+     lines = [[None]*20]*5 + lines
+     r = range(5,len(lines))
+     edited_lines=[]
+     for i in r:
+         if   is_line0(lines[i+0]) and is_line1(lines[i+1]) and is_line2(lines[i+2]) and is_line3(lines[i+3]) and is_line4(lines[i+4]):
+             l = 'file: '+extract_filename(lines[i])+'\n'
+             ll=len(l)
+             edited_lines.append("\n")
+             edited_lines.append( ll*"#" +"\n" )
+             edited_lines.append(l)
+             edited_lines.append( ll*'-' +"\n" )
+             edited_lines.append( ll*"#" +"\n" )
+         elif is_line0(lines[i-1]) and is_line1(lines[i+0]) and is_line2(lines[i+1]) and is_line3(lines[i+2]) and is_line4(lines[i+3]):
+             pass
+         elif is_line0(lines[i-2]) and is_line1(lines[i-1]) and is_line2(lines[i+0]) and is_line3(lines[i+1]) and is_line4(lines[i+2]):
+             pass
+         elif is_line0(lines[i-3]) and is_line1(lines[i-2]) and is_line2(lines[i-1]) and is_line3(lines[i+0]) and is_line4(lines[i+1]):
+             pass
+         elif is_line0(lines[i-4]) and is_line1(lines[i-3]) and is_line2(lines[i-2]) and is_line3(lines[i-1]) and is_line4(lines[i+0]):
+             pass
+         else:
+            if len(lines[i]) > 0:
+                if (lines[i][0]=='+' or lines[i][0]=='-' or lines[i][0]=="#" ):
+                      edited_lines.append(lines[i])
+                else:
+                      edited_lines.append( "#" + str(lines[i]) )
+            else:
+                edited_lines.append( "#" )
+
+
+edited_text=""
+
+for i in edited_lines:
+    edited_text += i + linesep
+
+edited_data=edited_text.encode(encoding='utf-8',errors='ignore')
+
+with open(argv[1],mode='wb') as f:
+     f.write(edited_data)
